@@ -5,6 +5,8 @@ import rospy
 import threading
 from necst.msg import Move_mode_msg
 from necst.msg import Otf_mode_msg
+from std_msgs.msg import Bool
+from std_msgs.msg import String
 
 class antenna_assist(object):
     ra = 0
@@ -145,6 +147,12 @@ class antenna_assist(object):
                 time.sleep(5)
                 continue
         return
+
+    def assist_stop(self):
+        self.r_flag = 0
+        self.g_flag = 0
+        self.p_flag = 0
+        return
         
 if __name__ == "__main__":
     rospy.init_node('antennna_assist')
@@ -154,5 +162,7 @@ if __name__ == "__main__":
     rospy.Subscriber("antenna_radec", Move_mode_msg, at_as.radec_assist)
     rospy.Subscriber("antenna_galactic", Move_mode_msg, at_as.galactic_assist)
     rospy.Subscriber("antenna_planet", Move_mode_msg, at_as.planet_assist)
+    rospy.Subscriber("emergency_stop", Bool, at_as.assist_stop)
+    rospy.Subscriber("move_stop", String, at_as.assist_stop)
     rospy.spin()
     
