@@ -16,6 +16,36 @@ from necst.msg import Status_dome_msg
 from necst.msg import Dome_msg
 
 class dome_controller(object):
+    """ 
+    DESCRIPTION
+    ===========
+    dome control class
+
+    ARGUMENTS
+    =========
+    None
+
+    PARAMETER
+    =========
+    touchsensor_pos --  touchsensor position 
+
+    status_parameter
+    
+    move_status
+    right_act
+    right_pos
+    left_act
+    left_pos
+    memb_act
+    memb_pos
+    remote_status
+
+    enc_az
+
+    target_az
+    command
+    """
+    
     touchsensor_pos = [-391,-586,-780,-974,-1168,-1363,-1561,-1755,-1948,-2143, 0, -197]
     dome_encoffset = 10000
     buffer = [0,0,0,0,0,0]
@@ -46,7 +76,7 @@ class dome_controller(object):
     ###command flags
     flag = 0
 
-    end_flag = True
+    tracking_end = True
            
     def __init__(self):
         board_name = 2724
@@ -64,7 +94,7 @@ class dome_controller(object):
             print(self.dome_enc)
         except:
             pass
-        
+"""        
     def start_thread(self):
         tlist = threading.enumerate()
         for i in tlist:
@@ -85,29 +115,23 @@ class dome_controller(object):
             return
         except:
             pass
-    
+"""
+
     def move_track(self):
-        print('dome_trakcking start', self.end_flag)
+        print('dome_trakcking start', self.tracking_end)
         ret = self.read_domepos()
-        while not self.end_flag:
-            enc_az = float(self.enc_az)
+        while not self.tracking_end:
             dome_az = self.read_domepos()
             dome_az = dome_az/3600.
             self.dome_limit()
-            enc_az = float(enc_az)
+            enc_az = float(self.enc_az)
             enc_az = enc_az/3600.
             if math.fabs(enc_az - dome_az) >= 2.0:
                 self.move(enc_az, track=True)
             time.sleep(0.01)
-            if self.end_flag == True:
+            if self.tracking_end == True:
                 break
             print('dome_tracking')
-    
-    def test(self, num): #for track_test
-        self.start_thread()
-        time.sleep(num)
-        self.end_thread()
-        return
     
     def print_msg(self,msg):
         print(msg)
@@ -132,7 +156,6 @@ class dome_controller(object):
         dir = diff % 360.0
         if dir < 0:
             dir = dir*(-1)
-        
         if pos == dist: return
         if dir < 0:
             if abs(dir) >= 180:
@@ -150,7 +173,7 @@ class dome_controller(object):
             speed = 'high'
         else:
             speed = 'mid'
-        if not abs(dir) < 0.5:
+        if not abs(dir) < 2:
             global buffer
             self.buffer[1] = 1
             self.do_output(turn, speed)
@@ -164,7 +187,7 @@ class dome_controller(object):
                 diff = dist - pos
                 dir = diff % 360.0
                 if abs(dir) <= 0.5:
-                    dir = 0
+                    dir = 2
                 else:
                     if dir < 0:
                         if abs(dir) >= 180:
@@ -179,13 +202,12 @@ class dome_controller(object):
                             
                     if abs(dir) < 5.0 or abs(dir) > 355.0:
                         speed = 'low'
-                    elif abs(dir) > 20.0 and abs(dir) < 340.0:###or => and
+                    elif abs(dir) > 20.0 and abs(dir) < 340.0:
                         speed = 'high'
                     else:
                         speed = 'mid'
                     self.do_output(turn, speed)
                 time.sleep(0.1)
-        
         self.dome_stop()
         return
     
@@ -202,7 +224,7 @@ class dome_controller(object):
             self.dio.output_point(buff, 5)
             d_door = self.get_door_status()
             while ret[1] != 'OPEN':
-                time.sleep(5)
+                time.sleep(1)
                 ret = self.get_door_status()
         buff = [0, 0]
         self.dio.output_point(buff, 5)
@@ -214,7 +236,7 @@ class dome_controller(object):
             buff = [0, 1]
             self.dio.output_point(buff, 5)
             while ret[1] != 'CLOSE':
-                time.sleep(5)
+                time.sleep(1)
                 ret = self.get_door_status()
         buff = [0, 0]
         self.dio.output_point(buff, 5)
@@ -226,7 +248,7 @@ class dome_controller(object):
             buff = [1, 1]
             self.dio.output_point(buff, 7)
             while ret[1] != 'OPEN':
-                time.sleep(5)
+                time.sleep(1)
                 ret = self.get_memb_status()
         buff = [0, 0]
         self.dio.output_point(buff, 7)
@@ -238,7 +260,7 @@ class dome_controller(object):
             buff = [0, 1]
             self.dio.output_point(buff, 7)
             while ret[1] != 'CLOSE':
-                time.sleep(5)
+                time.sleep(1)
                 ret = self.get_memb_status()
         buff = [0, 0]
         self.dio.output_point(buff, 7)
@@ -451,8 +473,6 @@ class dome_controller(object):
     def read_domepos(self):
         return self.dome_enc
 
-    ###ROS part
-
     ###start threading
     def start_thread_ROS(self):
         th = threading.Thread(target = self.pub_status)
@@ -504,10 +524,10 @@ class dome_controller(object):
                 self.flag = 1
             elif self.parameters['command'] == 'dome_stop':
                 self.dome_stop()
-                self.end_flag = True
+                self.tracking_end = True
                 self.flag = 1
             elif self.parameters['command'] == 'dome_tracking':
-                self.end_flag = False
+                self.tracking_end = False
                 self.move_track()
                 self.flag = 1
                 pass
@@ -521,13 +541,13 @@ class dome_controller(object):
                 continue
             elif self.parameters['command'] == 'dome_stop':
                 self.dome_stop()
-                self.end_flag = True
+                self.tracking_end = True
                 self.flag = 1
                 print('!!!dome_stop!!!')
             elif self.parameters['command'] == 'dome_track_end':
-                self.end_flag = True
+                self.tracking_end = True
                 self.flag = 1
-                print('dome track end')
+                print('dome tracking end')
             time.sleep(1)
             continue        
 
@@ -552,7 +572,6 @@ if __name__ == '__main__':
     rospy.init_node('dome')
     d = dome_controller()
     d.start_thread_ROS()
-    print('[ROS_dome.py] : START SUBSCRIBE')
     sub1 = rospy.Subscriber('status_encoder', Status_encoder_msg, d.set_enc_parameter)
     sub2 = rospy.Subscriber('dome_move', Dome_msg, d.set_command)
     rospy.spin()

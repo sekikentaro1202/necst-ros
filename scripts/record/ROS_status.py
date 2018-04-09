@@ -9,6 +9,7 @@ import threading
 from datetime import datetime as dt
 from std_msgs.msg import Float64
 from std_msgs.msg import String
+from std_msgs.msg import Bool
 from necst.msg import Status_antenna_msg
 from necst.msg import Status_weather_msg
 from necst.msg import Status_encoder_msg
@@ -68,6 +69,7 @@ class status_main(object):
               "error_msg":""}
     param9 = {"m2_pos": 0}
     param10 = {"alert_msg":""}
+    param11 = {'tracking':False}
 
     def __init__(self):
         if __name__ == '__main__':
@@ -78,18 +80,6 @@ class status_main(object):
         self.args.append("")
         self.pub = rospy.Publisher("read_status", Read_status_msg, queue_size=1)
         pass
-
-    def status_check(self):
-        time.sleep(0.1)
-        #rospy.loginfo(self.param1)
-        #rospy.loginfo("\n")
-        #rospy.loginfo(self.param2["rain"])
-        #rospy.loginfo("\n")
-        #rospy.loginfo(self.param3)
-        #rospy.loginfo(self.param4)
-        #rospy.loginfo(self.param5)
-        #rospy.loginfo(self.param6)
-        #rospy.loginfo(self.param7)
 
     def callback1(self, req):
         self.param1["limit_az"] = req.limit_az
@@ -124,8 +114,6 @@ class status_main(object):
         pass
     
     def callback4(self, req):
-        #status_box = req.status
-        #print(status_box)
         self.param4['move_status'] = req.move_status
         self.param4['right_act'] = req.right_act
         self.param4['right_pos'] = req.right_pos
@@ -135,10 +123,8 @@ class status_main(object):
         self.param4['memb_pos'] = req.memb_pos
         self.param4['remote_status'] = req.remote_status
         dome_pos_1 = float(req.dome_enc)
-        #print(status_box[8])
         dome_pos_2 = math.fabs(dome_pos_1)%1296000
         self.param4['dome_pos'] = math.copysign(dome_pos_2,dome_pos_1)/3600.
-        #self.param4['dome_pos'] = str(self.param4['dome_pos'])
         if self.param4['right_pos'] == 'OPEN' and self.param4['left_pos'] == 'OPEN':
             self.param4['dome_status'] = 'OPEN'
         elif self.param4['right_pos'] == 'MOVE' or self.param4['left_pos'] == 'MOVE':
@@ -172,6 +158,10 @@ class status_main(object):
 
     def callback10(self,req):
         self.param10["alert_msg"] = req.data
+        pass
+
+    def callback11(self, req):
+        self.param11['tracking'] = req.data
         pass
 
     def tel_status(self):
@@ -241,10 +231,13 @@ class status_main(object):
             time.sleep(0.1)
 
 class read_status(status_main):
+    """
+    DESCRIPTION
+    ===========
+    for n2kosma.py
+    """
 
     def __init__(self):
-        #status_main.__init__(self)
-        rospy.init_node('Status_read', anonymous=True)
         th = threading.Thread(target = self.initialize)
         th.setDaemon(True)
         th.start()
@@ -260,10 +253,11 @@ class read_status(status_main):
         sub8 = rospy.Subscriber('limit_check', Status_limit_msg, self.callback8)
         sub9 = rospy.Subscriber('status_m2', Float64, self.callback9)
         sub10 = rospy.Subscriber('alert', String, self.callback10)
+        sib11 = rospy.Subscriber('tracking_check', Bool, self.callback11, queue_size = 1)
         rospy.spin()
     
     def read_status(self):
-        return self.param1, status_main.param2, self.param3, self.param4, self.param5, self.param6, self.param7, self.param8, self.param9, self.param10
+        return self.param1, status_main.param2, self.param3, self.param4, self.param5, self.param6, self.param7, self.param8, self.param9, self.param10,self.param11
             
 if __name__ == '__main__':
     st = status_main()

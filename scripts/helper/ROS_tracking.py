@@ -33,14 +33,10 @@ class tracking_check(object):
         
 
     def set_ant_param(self, req):
-        #rospy.loginfo(req.command_az)
-        #rospy.loginfo(req.command_el)
         self.antenna_param['command_az'] = req.command_az
         self.antenna_param['command_el'] = req.command_el
 
     def set_enc_param(self, req):
-        #rospy.loginfo(req.enc_az)
-        #rospy.loginfo(req.enc_el)
         self.enc_param['enc_az'] = req.enc_az
         self.enc_param['enc_el'] = req.enc_el
 
@@ -53,11 +49,10 @@ class tracking_check(object):
             enc_el = self.enc_param['enc_el']
             if command_az < 0:
                 command_az += 360*3600
-            if enc_az <0:
+            if enc_az < 0:
                 enc_az += 360*3600
             d_az = abs(command_az - enc_az)
             d_el = abs(command_el - enc_el)
-            #rospy.loginfo( self.antenna_param['command_az'])
             if d_az <= 3 and d_el <=3:
                 track_count += 1
             else:
@@ -72,7 +67,7 @@ class tracking_check(object):
         return self.tracking
 
     def pub_tracking(self):
-        pub = rospy.Publisher('tracking_check', Bool, queue_size = 10, latch = True)
+        pub = rospy.Publisher('tracking_check', Bool, queue_size = 1)
         track_status = Bool()
         while not rospy.is_shutdown():
             if self.tracking:
