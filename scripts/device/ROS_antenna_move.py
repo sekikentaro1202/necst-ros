@@ -60,14 +60,6 @@ class antenna_move(object):
 
     command_az_speed = 0
     command_el_speed = 0
-    """
-    ###for module
-    az_rate_d = 0
-    el_rate_d = 0
-
-    m_stop_rate_az = 0
-    m_stop_rate_el = 0
-    """
 
     MOTOR_SAMPLING = 10 #memo
     dt = MOTOR_SAMPLING/1000.
@@ -168,32 +160,7 @@ class antenna_move(object):
         self.enc_parameter['el_enc'] = req.enc_el 
         return
     
-    '''
-    def limit_check(self):
-        """
-        DESCRIPTION
-        ===========
-        This function checks limit azel_list 
-        """
-        for i in range(len(self.parameters['az_list'])):
-            #print(self.parameters['az_list'][i],self.parameters['el_list'][i])
-            if self.parameters['az_list'][i] >= 280*3600 or  self.parameters['az_list'][i] <=-280*3600:#tmp
-                rospy.logwarn('!!!limit az!!!')
-                rospy.logwarn(self.parameters['az_list'][i])
-                self.limit_flag = False
-                self.error = True
-                return False
-            
-            if self.parameters['el_list'][i] >= 89*3600 or  self.parameters['el_list'][i] <= 0*3600:#tmp
-                rospy.logwarn('!!!limit el!!!')
-                rospy.logwarn(self.parameters['el_list'][i])
-                self.limit_flag = False
-                self.error = True
-                return False
-            else:
-                return True
-    '''
-    
+     
     def get_param_from_azellist(self):
         """
         DESCRIPTION
@@ -209,6 +176,7 @@ class antenna_move(object):
         ct = time.time()
         st_e = st + n*0.1 #0.1 = interval time of azel_list element
         if st - ct >=0: #if azel_list's start time is future
+            self.node_status = 'waiting azel_list start time'
             print(st - ct,' [sec] waiting...')
             return
 
@@ -226,21 +194,9 @@ class antenna_move(object):
 
         else:
             num = int((ct-st)*10)
-            print(num)
             st2 = st+num*0.1
-            print('st2 = {0}'.format(st2))
-            print(len(self.parameters['az_list']))
             if num + 2 > len(self.parameters['az_list']):
                 return
-            """
-            for i in range(len(self.parameters['az_list'])):
-                st2 = st + (i*0.1)
-                num = i
-                if st2 - ct >0:
-                    break
-            if num + 1 == len((self.parameters['az_list'])):
-                return
-            """
             x1 = self.parameters['az_list'][num]
             x2 = self.parameters['az_list'][num+1]
             y1 = self.parameters['el_list'][num]
@@ -249,8 +205,10 @@ class antenna_move(object):
 
     def act_azel(self):
         while True:
+            self.node_status = 'moving'
             if self.stop_flag:
                 print('STOP')
+                self.node_status = 'wating azel_list'
                 self.dio.output_word('OUT1_16', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#az ###not used in simulator
                 self.dio.output_word('OUT17_32',[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#el ###not used in simulator
                 self.command_az_speed = 0
@@ -269,15 +227,15 @@ class antenna_move(object):
                 st = ret[4]
                 tar_az = ret[0] + az*(c-st)*10
                 tar_el = ret[2] + el*(c-st)*10
-                print(c-st)
-                #2nd limit check (1st limit check is in ROS_antenna.py)
-                if tar_az > 240*3600. or tar_el < -240*3600.:
+                if tar_az > 240*3600. or tar_el < -240*3600.:#2nd softlimit az
                     self.stop_flag = False
                     print('!!!target az limit!!! : ', tar_az)
+                    self.node_status = 'az_limit' 
                     continue
-                if tar_el > 89*3600. or tar_el < 0:
+                if tar_el > 89*3600. or tar_el < 0:#2nd softlimit el
                     self.stop_flag = False
                     print('!!!target el limit!!! : ', tar_el)
+                    self.node_status = 'el limit'
                     continue
                 self.command_az = tar_az
                 self.command_el = tar_el
@@ -288,73 +246,6 @@ class antenna_move(object):
                 self.azel_move(tar_az,tar_el,10000,12000)
                 time.sleep(0.001)
            
-
-
-#module part(this part is copy from nanten_main_controller.py(necst ver1.0 script))
-#----------------------------------------------------------------------------------
-
-    """
-    def __init__(self):
-        self.dio = pyinterface.create_gpg2000(3)
-        self.enc = antenna_enc.enc_monitor_client('172.20.0.11',8002)
-        #self.enc = antenna_enc.enc_controller()
-        ret = self.enc.read_azel()
-        self.az_encmoni = ret[0]
-        self.el_encmoni = ret[1]
-        pass
-    """
-    
-    """#not need 0921
-
-    def read_enc(self):
-        t1 = time.time()
-        ret = self.enc.read_azel()
-        t2 = time.time()
-        self.th_az = ret[0]
-        self.th_el = ret[1]
-        
-        if t2 - t1 <= 0.005:
-            self.time_list[0] = self.time_list[0] + 1
-        elif t2 - t1 <= 0.01:
-            self.time_list[1] = self.time_list[1] + 1
-        elif t2 - t1 <= 0.015:
-            self.time_list[2] = self.time_list[2] + 1
-        elif t2 - t1 <= 0.02:
-            self.time_list[3] = self.time_list[3] + 1
-        elif t2 - t1 <= 0.025:
-            self.time_list[4] = self.time_list[4] + 1
-        return
-        
-    """
-
-    """
-    def count_time(self):#not in use
-        flag_list = self.server_flag[:]
-        time.sleep(1)
-        if self.server_flag == flag_list:
-            self.dio.output_word('OUT1_16', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-            self.sdio.output_word('OUT17_32', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-            self.end_flag = 1
-            for i in range(1000):
-                print(flag_list)
-                return
-        
-        
-        if self.save_time == 0:
-            self.save_time = time.time()
-        tv = time.time()
-        if tv - self.save_time >= 60.:
-            name = "enc_hist"+str(int(tv))+".txt"
-            f = open(name, "w")
-            for i in range(5):
-                f.write(str(self.time_list[i])+"\n")
-            f.close()
-            self.save_time = time.time()
-            self.time_list = [0, 0, 0, 0, 0]
-        
-        return    
-    """
-    
     def init_speed(self):
         self.dio.output_word('OUT1_16', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#az ###not used in simulator
         self.dio.output_word('OUT17_32', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#el ###not used in simulator
@@ -377,14 +268,6 @@ class antenna_move(object):
         interval = time.time()-b_time
         if interval <= 0.01:#0.01?
             time.sleep(0.01-interval)        
-        """
-        else:
-            self.dio.output_word('OUT1_16', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#az ###not used in simulator
-            self.dio.output_word('OUT17_32', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])#el ###not used in simulator
-            self.command_az_speed = 0
-            self.command_el_speed = 0
-            return 0
-        """       
         return 1
             
             
@@ -512,32 +395,6 @@ class antenna_move(object):
             self.server_flag.pop(0)
         self.end_flag = 0
         
-        """not need? 0921
-        enc_thread = threading.Thread(target = self.read_enc)
-        enc_thread.start()
-        count_thread = threading.Thread(target = self.count_time)
-        count_thread.start()
-        enc_thread.join()
-        """
-        
-        #"""not need tabun
-        if self.end_flag:
-            for i in range(2000):
-                print("!!!end!!!")
-            sys.exit()
-        #"""
-        
-        #ret = self.enc.read_azel()
-        #az_enc = ret[0]
-        #el_enc = ret[1]
-            
-        """
-        #older version
-        #-------------
-        az_enc = self.th_az
-        el_enc = self.th_el
-        """
-
         #ROS_version
         #-----------
         az_enc = self.enc_parameter['az_enc']
