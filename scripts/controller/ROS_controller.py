@@ -612,7 +612,7 @@ class controller(object):
         self.pub3.publish(msg)
         return
     
-    def oneshot_XFFTS(self, integtime, repeat, synctime):
+    def oneshot_XFFTS(self, integtime=1, repeat=1, synctime=0.1, rugtime=0.1):
         """XFFTS Publisher
         Parameters
         ----------
@@ -624,9 +624,10 @@ class controller(object):
         msg.integtime = integtime
         msg.repeat = repeat
         msg.synctime = synctime
+        msg.rugtime = rugtime
         msg.from_node = self.node_name
         msg.timestamp = time.time()
-        
+        print(msg.timestamp)
         self.pub_XFFTS.publish(msg)
         return
         
