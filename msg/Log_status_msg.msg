@@ -1,0 +1,10 @@
+string OBJECT
+string OBSERVER
+string OBSMODE
+string MOLECULE
+string TRANSITE
+string LOFREQ
+string SYNTH
+string OBSNAME
+string from_node
+float64 timestamp
