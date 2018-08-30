@@ -11,21 +11,17 @@ class antenna_device(object):
     command_az_speed = 0
     command_el_speed = 0
     
-    count = [0, 0]
-    target_array = [[0], [0]]
+    #count = [0, 0]
+    #target_array = [[0], [0]]
 
-    rate = [0, 0]
     az_rate_d = el_rate_d = 0
     pre_hensa = [0, 0]
     ihensa = [0.0, 0.0]
     
     enc_before = [0, 0]
-    err_before = [0, 0]
-    current_speed = [0.0, 0.0]
     pre_arcsec = [0, 0]
 
     t_now = t_past = 0.0
-    t = [0.0, 0.0]
 
     #PID parameter
     p_coeff = [3.7, 3.7]
@@ -77,10 +73,16 @@ class antenna_device(object):
             pass
         self.t_now = time.time()
 
-        ret_az = self.calc_pid(az_arcsec, enc_az, mode="az")
-        az_rate_ref = ret_az
-        ret_el = self.calc_pid(el_arcsec, enc_el, mode="el")
-        el_rate_ref = ret_el
+        ret_az = calc_pid(az_arcsec, enc_az, self.pre_arcsec[0], self.pre_hensa[0], self.ihensa[0], self.enc_before[0], self.t_now, self.t_past, self.p_coeff[0], self.i_coeff[0], self.d_coeff[0])
+        az_rate_ref = ret_az[0]
+        ret_el = calc_pid(el_arcsec, enc_el, self.pre_arcsec[1], self.pre_hensa[1], self.ihensa[1], self.enc_before[1], self.t_now, self.t_past, self.p_coeff[1], self.i_coeff[1], self.d_coeff[1])
+        el_rate_ref = ret_el[0]
+        
+        #update
+        self.enc_before = [enc_az, enc_el]
+        self.pre_hensa = [az_arcsec - enc_az, el_arcsec - enc_el]
+        self.pre_arcsec = [az_arcsec, el_arcsec]
+        self.ihensa = [ret_az[1], ret_el[1]]
         self.t_past = self.t_now
         
         #limit of acc
@@ -134,62 +136,9 @@ class antenna_device(object):
         self.dio.output_word('OUT17_32', dummy_byte)
         self.el_rate_d = dummy
         
-        return [ret_az, ret_el]
+        return [ret_az[0], ret_el[0]]
 
-    def calc_pid(self, target_arcsec, encoder_arcsec, mode):
-        """
-        DESCRIPTION
-        ===========
-        This function determine az&el speed for antenna 
-        """
-        DEG2ARCSEC = 3600.
-        if mode == "az":
-            i = 0
-        elif mode == "el":
-            i = 1
-        else:
-            return
-
-        
-        #calculate ichi_hensa
-        err = target_arcsec - encoder_arcsec
-
-        hensa = target_arcsec - encoder_arcsec 
-        
-        dhensa = hensa - self.pre_hensa[i]
-        if math.fabs(dhensa) > 1:
-            dhensa = 0
-        
-        if self.t[i] == 0.0:
-            self.t[i] = self.t_now
-        else:
-            if (encoder_arcsec - self.enc_before[i]) != 0.0:
-                self.current_speed[i] = (encoder_arcsec - self.enc_before[i]) / (self.t_now-self.t[i])
-        
-        if self.pre_arcsec[i] == 0: # for first move
-            target_speed = 0
-        else:
-            target_speed = (target_arcsec - self.pre_arcsec[i])/(self.t_now - self.t_past)
-        
-        ret = self.medi_calc(target_speed, i)
-        target_speed = ret
-        
-        self.ihensa[i] += (hensa + self.pre_hensa[i])/2
-        if math.fabs(hensa) > 50:
-            self.ihensa[i] = 0.0
-        
-        #PID
-        self.rate[i] = target_speed + self.p_coeff[i]*hensa + self.i_coeff[i]*self.ihensa[i]*(self.t_now-self.t_past) + self.d_coeff[i]*dhensa/(self.t_now-self.t_past)
-        
-        #update
-        self.enc_before[i] = encoder_arcsec
-        self.err_before[i] = err
-        self.pre_hensa[i] = hensa
-        self.pre_arcsec[i] = target_arcsec
-        self.t[i] = self.t_now
-        
-        return self.rate[i]
-
+    """
     def medi_calc(self, target_speed, i):
         target_num = 13 # number of median array
         self.target_array[i].insert(0, target_speed)
@@ -200,6 +149,7 @@ class antenna_device(object):
         
         median = numpy.median(self.target_array[i])
         return median
+    """
 
     def emergency_stop(self):
         for i in range(5):
@@ -209,3 +159,35 @@ class antenna_device(object):
             self.command_az_speed = 0
             self.command_el_speed = 0
         return
+
+
+def calc_pid(target_arcsec, encoder_arcsec, pre_arcsec, pre_hensa, ihensa, enc_before, t_now, t_past, p_coeff, i_coeff, d_coeff):
+    """
+    DESCRIPTION
+    ===========
+    This function determine az&el speed for antenna 
+    """
+
+    #calculate ichi_hensa
+    hensa = target_arcsec - encoder_arcsec
+
+    dhensa = hensa - pre_hensa
+    if math.fabs(dhensa) > 1:
+        dhensa = 0
+
+    if (encoder_arcsec - enc_before) != 0.0:
+        current_speed = (encoder_arcsec - enc_before) / (t_now-t_past)
+
+    if pre_arcsec == 0: # for first move
+        target_speed = 0
+    else:
+        target_speed = (target_arcsec - pre_arcsec)/(t_now - t_past)
+
+    ihensa += (hensa + pre_hensa)/2
+    if math.fabs(hensa) > 50:
+        ihensa = 0.0
+
+    #PID
+    rate = target_speed + p_coeff*hensa + i_coeff*ihensa*(t_now-t_past) + d_coeff*dhensa/(t_now-t_past)
+
+    return [rate, ihensa]
