@@ -9,7 +9,7 @@
 
 name = 'position_switching2018'
 description = 'Get P/S spectrum'
-
+node_name = name
 
 # Default parameters
 # ------------------
@@ -46,6 +46,8 @@ import sys
 sys.path.append("/home/amigos/ros/src/necst/lib")
 sys.path.append("/home/amigos/ros/src/necst/scripts/controller")
 import doppler_nanten
+import rospy
+from necst.msg import Log_status_msg
 dp = doppler_nanten.doppler_nanten()
 import ROS_controller
 import obs_log
@@ -124,6 +126,25 @@ if obs['lo1st_sb_2'] == 'U':#後半に似たのがあるけど気にしない()
     sb2 = 1
 else:
     sb2 = -1  
+
+
+#To Logger
+# ----------------------
+pub = rospy.Publisher("log_status", Log_status_msg, queue_size=1)
+
+msg = Log_status_msg
+msg.OBJECT = obs["object"]
+msg.OBSERVER = obs["observer"]
+msg.OBSMODE = obs["obsmode"]
+msg.MOLECULE = obs["molecule_1"]
+msg.TRANSITE = obs["transite_1"]
+msg.LOFREQ = "?"
+msg.SYNTH = "?"
+msg.OBSNAME = name
+msg.from_node = node_name
+msg.timestamp = time.time()
+
+pub.publish(msg)
 
 
 datahome = '/home/amigos/data/test/'

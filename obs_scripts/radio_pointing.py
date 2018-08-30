@@ -9,7 +9,7 @@
 
 name = 'radio_pointing_line_9'
 description = 'Do radio pointing'
-
+node_name = name
 
 # Default parameters
 # ------------------
@@ -46,6 +46,8 @@ import numpy
 import obs_log
 import doppler_nanten
 dp = doppler_nanten.doppler_nanten()
+import rospy
+from necst.msg import Log_status_msg
 
 list = []
 list.append("--obsfile")
@@ -116,6 +118,24 @@ def handler(num, flame):
     sys.exit()
 
 signal.signal(signal.SIGINT, handler)
+
+#To Logger
+# ----------------------
+pub = rospy.Publisher("log_status", Log_status_msg, queue_size=1)
+
+msg = Log_status_msg
+msg.OBJECT = obs["object"]
+msg.OBSERVER = obs["observer"]
+msg.OBSMODE = obs["obsmode"]
+msg.MOLECULE = obs["molecule_1"]
+msg.TRANSITE = obs["transite_1"]
+msg.LOFREQ = "?"
+msg.SYNTH = "?"
+msg.OBSNAME = name
+msg.from_node = node_name
+msg.timestamp = time.time()
+
+pub.publish(msg)
 
 # Initial configurations
 # ----------------------

@@ -7,15 +7,31 @@ from astropy.io import fits
 import time
 import threading
 
+from necst.msg import Log_status_msg
+from necst.msg import Status_weather_msg
+from necst.msg import Status_encoder_msg
+from necst.msg import Status_antenna_msg
+from necst.msg import Status_dome_msg
+from necst.msg import String_necst
+from necst.msg import Float64_necst
+from necst.msg import Log_flag_msg
 
 
-class logger(object):
+save_dir = "/home/amigos/data" #need change
+
+class Logger(object):
+    # logger status
+    # -------------
     node_name = "Logger"
+    __version__ = "1.0.0"
+    log_start_time = 0
+    log_end_time = 0
     
-    # For callback, to fits 
-    # ------------------------------
+    # For callback, to fits
+    # ---------------------
     init = {"OBJECT":"none", "OBSERVER":"none", "OBSMODE":"none", "MOLECULE":"none",
-            "TRANSITE":"none", "LOFREQ":0, "SYNTH":0, "OBSNAME":"none"}
+            "TRANSITE":"none", "LOFREQ":0, "SYNTH":0, "OBSNAME":"none",
+            "STARTTIME":0, "ENDTIME":0}
     
     weather = {"TAMBIENT":[], "HUMIDITYIN":[], "HUMIDITYOUT":[], "WINDSPEED":[],
             "WINDDIRECTION":[], "PRESSURE":[], "THOT1":[], "THOT2":[], "TIME":[]}
@@ -34,14 +50,84 @@ class logger(object):
 
     hdu_prim = None
     hdu_1 = None
-    hdu_2 = None
-    hdu_3 = None
+    hdu_01 = None
+    hdu_001 = None
 
 
     def __init__(self):
         rospy.init_node(self.node_name)
-        if __name__ == "_main_":
-            thread = threading.Thread(target = self.)
+        return
+
+    def start_thread(self):
+        th_sub = threading.Thread(target = self.Subscribe_function)
+        th_sub.setDaemon(True)
+        th_sub.start()
+        return
+
+    def flag_checker(self,req):
+        """
+        Log Flag Checker
+        This function checks flag from ROS_controller.py.
+        If flag = "START", it initializes dictionaries, and start logging.
+        If flag = "END", it calls fits_writer, and end logging.
+        """
+        log_flag = req.flag
+        if log_flag == "START":
+            self.log_start_time = time.time()
+            self.initialize()
+            print("START LOGGING")
+        elif log_flag == "END":
+            self.log_end_time = time.time()
+            self.fits_writer()
+            print("END LOGGING")
+            self.initialize()
+        else:
+            pass
+        return
+
+    def initialize(self):
+        """
+        Initialize Function
+        This function initializes dictionaries.
+        """
+        self.init = {"OBJECT":"none", "OBSERVER":"none", "OBSMODE":"none", "MOLECULE":"none",
+                "TRANSITE":"none", "LOFREQ":0, "SYNTH":0, "OBSNAME":"none",
+                "STARTTIME":0, "ENDTIME":0}
+        self.weather = {"TAMBIENT":[], "HUMIDITYIN":[], "HUMIDITYOUT":[], "WINDSPEED":[],
+                "WINDDIRECTION":[], "PRESSURE":[], "THOT1":[], "THOT2":[], "TIME":[]}
+        self.encoder = {"AZIMUTH":[], "ELEVATIO":[], "TIME":[]}
+        self.antenna = {"TARGETAZ":[], "TARGETEL":[], "TIME":[]}
+        self.dome = {"STATUS":[], "RPOS":[], "LPOS":[], "MEMB":[], "REMSTATUS":[],
+                "DOMEPOSITION":[], "TIME":[]}
+        self.hot = {"SOBSMODE":[], "TIME":[]}
+        self.m2 = {"SUBREF":[], "TIME":[]}
+        return
+
+    def Subscribe_function(self):
+        """
+        Subscribe Function
+        This function collects data/status from each publisher,
+        and callbacks add them to each dictionary.
+        """
+        print("START SUBSCRIBE")
+        sub_status = rospy.Subscriber("log_status", Log_status_msg, self.log_once)
+        sub_weather = rospy.Subscriber("log_weather", Status_weather_msg, self.log_weather)
+        sub_enc = rospy.Subscriber("log_encoder", Status_encoder_msg, self.log_encoder)
+        sub_antenna = rospy.Subscriber("log_antenna", Status_antenna_msg, self.log_antenna)
+        sub_dome = rospy.Subscriber("log_dome", Status_dome_msg, self.log_dome)
+        sub_hot = rospy.Subscriber("log_hot", String_necst, self.log_hot)
+        sub_m2 = rospy.Subscriber("log_m2", Float64_necst, self.log_m2)
+        rospy.spin()
+        return
+
+    def fits_writer(self):
+        """
+        Fits Writer
+        This function writes data collected in each dictionary to fits.
+        """
+        hdulist = fits.HDUList([self.hdu_prim, self.hdu_1, self.hdu_01, self.hdu_001])
+        hdulist.writeto(save_dir + "{}_{}_{}.fits".format(self.log_start_time, self.init["OBJECT"], self.init["OBSMODE"])) # need change
+        return
 
     # Status not change during observation
     # ------------------------------------
@@ -54,9 +140,8 @@ class logger(object):
         self.init["LOFREQ"] = req.LOFREQ
         self.init["SYNTH"] = req.SYNTH
         self.init["OBSNAME"] = req.OBSNAME
-        
-        header = fits.Header(self.init)
-        self.hdu_prim = fits.PrimaryHDU(header = header)
+        self.init["STARTTIME"] = self.log_start_time
+        self.init["ENDTIME"] = self.log_end_time
         return
 
     # Get status function
@@ -106,8 +191,18 @@ class logger(object):
         return
 
 
-    # Create Fits File 
-    # ----------------
+    # Create HDU
+    # ----------
+    def interval_None(self):
+        """
+        not change while observation
+
+        interval : None
+        """
+        header = fits.Header(self.init)
+        self.hdu_prim = fits.PrimaryHDU(header = header)
+        return
+
     def interval_1(self):
         """
         weather
@@ -144,7 +239,7 @@ class logger(object):
         col2_m = fits.Column(name='TIME_M2', format='1D', unit='s', array=self.m2["TIME"])
         coldefs = fits.ColDefs([col1_d, col2_d, col1_h, col2_h, col1_m, col2_m])
         
-        self.hdu_2 = fits.BinTableHDU.from_columns(coldefs)
+        self.hdu_01 = fits.BinTableHDU.from_columns(coldefs)
         return
 
     def interval_001(self):
@@ -162,18 +257,14 @@ class logger(object):
         col3_a = fits.Column(name='TIME_ANT', format='1D', unit='s', array=self.antenna["TIME"])
         coldefs = fits.ColDefs([col1_e, col2_e, col3_e, col1_a, col2_a, col3_a])
 
-        self.hdu_3 = fits.BinTableHDU.from_columns(coldefs)
+        self.hdu_001 = fits.BinTableHDU.from_columns(coldefs)
         return
 
 if __name__ == "__main__":
-    log = logger()
+    log = Logger()
+    print("WAKE UP LOGGER")
+    log.start_thread()
     
-
-    sub_status = rospy.Subscriber("log_status", Log_status_msg, log.log_once)
-    sub_weather = rospy.Subscriber("status_weather", Status_weather_msg, log.log_weather)
-    sub_enc = rospy.Subscriber("status_encoder", Status_encoder_msg, log.log_encoder)
-    sub_antenna = rospy.Subscriber("status_antenna", Status_antenna_msg, log.log_antenna)
-    sub_dome = rospy.Subscriber("status_dome", Status_dome_msg, log.log_dome)
-    sub_hot = rospy.Subscriber("status_hot", String_necst, log.log_hot)
-    sub_m2 = rospy.Subscriber("status_m2", Float64_necst, log.log_m2)
+    print("STAND-BY")
+    sub_flag = rospy.Subscriber("log_flag", Log_flag_msg, log.flag_checker)
     rospy.spin()

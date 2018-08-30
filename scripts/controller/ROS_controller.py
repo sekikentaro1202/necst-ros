@@ -24,6 +24,7 @@ from necst.msg import Bool_necst
 from necst.msg import String_necst
 from necst.msg import Int64_necst
 from necst.msg import Status_otf_msg
+from necst.msg import Log_flag_msg
 from NASCORX_XFFTS.msg import XFFTS_para_msg
 sys.path.append("/home/amigos/ros/src/necst/lib")
 
@@ -88,7 +89,8 @@ class controller(object):
         self.pub_XFFTS = rospy.Publisher("XFFTS_parameter", XFFTS_para_msg, queue_size=1)
         self.pub_regist = rospy.Publisher("authority_regist", String_necst, queue_size=1)
         self.pub_otfstatus = rospy.Publisher("otf_status", Status_otf_msg, queue_size=1)
-        self.pub_queue = rospy.Publisher("queue_obs", Bool_necst, queue_size=1)        
+        self.pub_queue = rospy.Publisher("queue_obs", Bool_necst, queue_size=1)
+        self.pub_log = rospy.Publisher("log_flag", Log_flag_msg, queue_size=1)
         time.sleep(0.5)# authority regist time                
 
         """get authority"""
@@ -766,3 +768,23 @@ class controller(object):
         self.read_sub.unregister()
         return
 
+    def log(self, switch):
+        """log function
+        This function instructs logger to start/end logging.
+
+        Parameter
+        ---------
+        switch : START or END
+        """
+        flag = str(switch).upper()
+        msg = Log_flag_msg()
+        msg.flag = flag
+        msg.from_node = self.node_name
+        msg.timestamp = time.time()
+        if flag in ["START", "END"]:
+            self.pub_log.publish(msg)
+            print("LOG : ", switch)
+        else:
+            print("!!Bad command!!, input START or END")
+            pass
+        return
