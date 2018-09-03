@@ -14,6 +14,7 @@ from necst.msg import Status_antenna_msg
 from necst.msg import List_coord_msg
 from necst.msg import Status_encoder_msg
 from necst.msg import Bool_necst
+from necst.msg import Status_pid_msg
 
 node_name = 'antenna_move'
 mode = sys.argv[1]#'Actual/Simulator'
@@ -48,7 +49,27 @@ class antenna_move(object):
     command_az = 0
     command_el = 0
 
-
+    rate_az = 0
+    rate_el = 0
+    target_arcsec_az = 0
+    target_arcsec_el = 0
+    enc_arcsec_az = 0
+    enc_arcsec_el = 0
+    pre_hensa_az = 0
+    pre_hensa_el = 0
+    ihensa_az = 0
+    ihensa_el = 0
+    enc_before_az = 0
+    enc_before_el = 0
+    p_az = 0
+    p_el = 0
+    i_az = 0
+    i_el = 0
+    d_az = 0
+    d_el = 0
+    t_now = 0
+    t_past = 0
+    
     tracking_status = False
     list_coord = ''
     
@@ -79,6 +100,9 @@ class antenna_move(object):
         th2 = threading.Thread(target = self.pub_status)
         th2.setDaemon(True)
         th2.start()
+        th3 = threading.Thread(target = self.pub_status_pid)
+        th3.setDaemon(True)
+        th3.start()
 
     def set_tracking(self, req):
         self.tracking_status = req.data
@@ -249,8 +273,28 @@ class antenna_move(object):
                 b_time = time.time()
 
                 ret = self.dev.move_azel(tar_az, tar_el, self.enc_parameter['az_enc'], self.enc_parameter['el_enc'])
-                rospy.loginfo(ret)
-                
+                rospy.loginfo(ret[0], ret[9])
+                self.rate_az = ret[0]
+                self.p_az = ret[1]
+                self.i_az = ret[2]
+                self.d_az = ret[3]
+                self.target_arcsec_az = ret[4]
+                self.enc_arcsec_az = ret[5]
+                self.pre_hensa_az = ret[6]
+                self.ihensa_az = ret[7]
+                self.enc_before_az = ret[8]
+                self.rate_el = ret[9]
+                self.p_el = ret[10]
+                self.i_el = ret[11]
+                self.d_el = ret[12]
+                self.target_arcsec_el = ret[13]
+                self.enc_arcsec_el = ret[14]
+                self.pre_hensa_el = ret[15]
+                self.ihensa_el = ret[16]
+                self.enc_before_el = ret[17]
+                self.t_now = ret[18]
+                self.t_past = ret[19]
+            
                 interval = time.time() - b_time
                 if interval <= 0.01:
                     time.sleep(0.01 - interval)
@@ -310,6 +354,34 @@ class antenna_move(object):
             time.sleep(0.001)
             continue
 
+    def pub_status_pid(self):
+        pub = rospy.Publisher('status_pid', Status_pid_msg, queue_size=1, latch=True)
+        msg = Status_pid_msg()
+        while not rospy.is_shutdown():
+            msg.rate_az = self.rate_az
+            msg.p_az = req.p_az
+            msg.i_az = req.i_az
+            msg.d_az = req.d_az
+            msg.target_arcsec_az = req.target_arcsec_az
+            msg.enc_arcsec_az = req.enc_arcsec_az
+            msg.pre_hensa_az = req.pre_hensa_az
+            msg.ihensa_az = req.ihensa_az
+            msg.enc_before_az = req.enc_before_az
+            msg.rate_el = req.rate_el
+            msg.p_el = req.p_el
+            msg.i_el = req.i_el
+            msg.d_el = req.d_el
+            msg.target_arcsec_el = req.target_arcsec_el
+            msg.enc_arcsec_el = req.enc_arcsec_el
+            msg.pre_hensa_el = req.pre_hensa_el
+            msg.ihensa_el = self.ihensa_el
+            msg.enc_before_el =self.enc_before_el
+            msg.t_now = self.t_now
+            msg.t_past = self.t_past
+            pub.publish(msg)
+            time.sleep(0.001)
+            continue
+            
 if __name__ == '__main__':
     rospy.init_node(node_name)
     ant = antenna_move()
