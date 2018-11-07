@@ -1,17 +1,14 @@
 #! /usr/bin/env python3
 
 import rospy
+import std_msgs.msg
 from necst.msg import List_coord_msg
-from necst.msg import Status_weather_msg
-from necst.msg import Bool_necst
-from necst.msg import String_necst
-from necst.srv import Bool_srv
-from necst.srv import Bool_srvResponse
+#from necst.srv import Bool_srv
+#from necst.srv import Bool_srvResponse
 
 from datetime import datetime
 from astropy.time import Time
 import time
-from scipy.optimize import curve_fit
 import sys
 sys.path.append("/home/amigos/ros/src/necst/lib/")
 sys.path.append("/home/necst/ros/src/necst/lib/")
@@ -29,33 +26,33 @@ class azel_list(object):
     param = ""
     stop_flag = False
     old_list = ""
-    move_flag = False
 
     def __init__(self):
         self.start_time = time.time()
         rospy.Subscriber("wc_list", List_coord_msg, self._receive_list, queue_size=1)
-        rospy.Subscriber("status_weather", Status_weather_msg, self._receive_weather, queue_size=1)
-        rospy.Subscriber("move_stop", Bool_necst, self._stop, queue_size=1)
-        rospy.Subscriber("move_flag", Bool_necst, self._move_check, queue_size=1)             
-        
+        rospy.Subscriber("/weather/press", std_msgs.msg.Float32, self._receive_press, queue_size=1)
+        rospy.Subscriber("/weather/outside2_temp", std_msgs.msg.Float32, self._receive_temp, queue_size=1)
+        rospy.Subscriber("/weather/outside2_humi", std_msgs.msg.Float32, self._receive_humi, queue_size=1)
+
         self.pub = rospy.Publisher("list_azel", List_coord_msg, queue_size=1000)
-        #self.stop = rospy.Publisher("move_stop", Bool_necst, queue_size=1)
-        #self.move = rospy.Publisher("move_flag", Bool_necst, queue_size=1)     
-        self.obs_stop = rospy.Publisher("obs_stop", String_necst, queue_size=1)
-        self.service = rospy.ServiceProxy("move_flag", Bool_srv)
+        #self.service = rospy.ServiceProxy("move_flag", Bool_srv)
         
-        self.msg = Bool_necst()
-        self.msg.from_node = node_name
         self.calc = calc_coord.azel_calc()
         pass
 
-    def _receive_weather(self, req):
+    def _receive_press(self, req):
         if req.press == 0:
             req.press = 500
         self.press = req.press
+        return
+
+    def _receive_temp(self, req):
         if req.out_temp > 273.15:
             req.out_temp -= 273.15
         self.out_temp = req.out_temp
+        return
+
+    def _receive_humi(self, req):
         if req.out_humi > 1:
             req.out_humi = req.out_humi/100.
         self.out_humi = req.out_humi
@@ -63,35 +60,21 @@ class azel_list(object):
     
     def _receive_list(self, req):
         ### x,y is [arcsec]
-        print("list")
-        #print(req)
         if req.timestamp < self.start_time:
             print("receive_old_list...")
         else:
             self.stop_flag = False
-            #self.move_flag = True
-            self.move_count = 0
+            #self.move_count = 0
             self.param = req
             pass
         return
-
-    def _move_check(self, req):
-        self.move_flag = req.data
-        return
-
-    '''
-    def linear_fit(self,x, a, b):
-        return a*x+b
-
-    def curve2_fit(self, x, a, b):
-        return a*x**2+b*x+self.p0
-    '''    
 
     def create_azel_list(self):
         msg = List_coord_msg()
         print("wait comming list...")
         while (self.param =="") and (not rospy.is_shutdown()) :
             time.sleep(0.1)
+            continue
         print("start_calclation!!")
         loop = 0
         check = 0
@@ -107,22 +90,10 @@ class azel_list(object):
             else:
                 pass
             
-            if self.stop_flag == False:# and self.move_flag == True:
+            if self.stop_flag == False:
                 if len(param.x_list) > 2:
                     dt = 0.1                    
 
-                    '''
-                    # curve fitting
-                    temp_time_list = [i-param.time_list[0] for i in param.time_list]
-                    self.p0 = param.x_list[0]
-                    curve_x, cov_x = curve_fit(self.curve2_fit, temp_time_list, param.x_list)
-                    x_list2 = [self.curve2_fit(dt*(i+loop*10), *curve_x) for i in range(10)]
-                    self.p0 = param.y_list[0]
-                    curve_y, cov_y = curve_fit(self.curve2_fit, temp_time_list, param.y_list)
-                    y_list2 = [self.curve2_fit(dt*(i+loop*10), *curve_y) for i in range(10)]                                                   
-                    time_list2 = [param.time_list[0]+dt*(i+loop*10) for i in range(10)]
-                    '''
-                    
                     # linear fitting
                     len_x = param.x_list[loop+1] - param.x_list[loop]
                     len_y = param.y_list[loop+1] - param.y_list[loop]
@@ -156,12 +127,6 @@ class azel_list(object):
                     if loop == len(param.time_list)-1:
                         self.stop_flag = True                        
                     check +=  check_count
-                    """ debug
-                    plt.plot(param.time_list, param.x_list,label="target",linestyle='None',marker='.')
-                    plt.plot(time_list2, x_list2,label="v2",linestyle='None',marker='.')
-                    plt.show()
-                    """
-
                 else:
                     len_x = param.x_list[1] - param.x_list[0]
                     len_y = param.y_list[1] - param.y_list[0]
@@ -203,26 +168,18 @@ class azel_list(object):
                 """limit check"""
                 for i in range(len(time_list2)):
                     if not -240*3600<ret[0][i]<240*3600 or not 0.<=ret[1][i]<90*3600.:
-                        if param.from_node =="worldcoordinate_linear":
-                            self.stop_flag = True
-                            limit_flag = True
-                            break
                         print("reaching soft limit : ", )
                         print("az : ", ret[0][i]/3600., "[deg]")
                         print("el : ", ret[1][i]/3600., "[deg]")
                         self.stop_flag = True
                         limit_flag = True
-                        data = "reaching soft limit : (az, el)=("+str(ret[0][i]/3600.)+", "+str(ret[1][i]/3600.)+") [deg]"
-                        self.obs_stop.publish(data = data, from_node=node_name, timestamp=time.time())                        
+                        #self.obs_stop.publish(data = data, from_node=node_name, timestamp=time.time())                        
                         break
                     else:
                         pass
                     limit_flag = False
-
+                """
                 if self.move_count == 0:
-                    #self.msg.timestamp = time.time()
-                    #self.msg.data = self.move_flag                    
-                    #self.move.publish(self.msg)
                     rospy.wait_for_service("move_flag")
                     print("wait comunication to antenna_move...")
                     response = self.service(True)
@@ -233,7 +190,8 @@ class azel_list(object):
                         print("connect antenna_move! ")                        
                         pass
                     self.move_count += 1
-                    
+                """
+
                 if not limit_flag:
                     msg.x_list = ret[0]
                     msg.y_list = ret[1]
@@ -252,13 +210,6 @@ class azel_list(object):
                 self.param = ""
                 pass
             time.sleep(0.1)
-        return
-
-    def _stop(self,req):
-        if req.data == True:
-            self.stop_flag = req.data
-        else:
-            pass
         return
 
     def negative_change(self, az_list):

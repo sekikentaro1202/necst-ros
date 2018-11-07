@@ -10,5 +10,4 @@ float64 lamda
 int64 dcos
 bool limit
 bool rotation
-string from_node
 float64 timestamp

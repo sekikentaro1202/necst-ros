@@ -3,7 +3,6 @@
 import rospy
 from necst.msg import Move_mode_msg
 from necst.msg import List_coord_msg
-from necst.msg import String_necst
 import time
 from datetime import datetime as dt
 import threading
@@ -23,13 +22,10 @@ class worldcoord(object):
         self.sub = rospy.Subscriber("onepoint_command", Move_mode_msg, self.note_command, queue_size=1)
         self.pub = rospy.Publisher("wc_list", List_coord_msg, queue_size=1)
         self.thread_start = threading.Thread(target=self.create_list)
-        self.obs_stop = rospy.Publisher("obs_stop", String_necst, queue_size=1)
         pass
 
     def note_command(self,req):
         if abs(req.x) > 360. or abs(req.y)>90:
-            data = "bad command : (x, y)=("+str(req.x)+", "+str(req.y)+") [deg]"
-            self.obs_stop.publish(data = data, from_node=node_name, timestamp=time.time())   
             pass
         else:
             self.command = req
