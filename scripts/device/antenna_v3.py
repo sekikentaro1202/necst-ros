@@ -4,6 +4,7 @@ name = "antenna_move"
 
 import rospy
 import std_msgs.msg
+import necst.msg
 import time
 
 
@@ -20,6 +21,8 @@ class Antenna(object):
 
     def __init__(self):
         self.start_time = time.time()
+
+        rospy.Subscriber('list_azel', necst.msg.List_coord_msg, self.set_parameter, queue_size=1000)
 
         topic_from_az = rospy.Subscriber(
                 name = "/antenna/az_lock",
