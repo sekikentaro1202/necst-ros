@@ -3,6 +3,7 @@
 name = "antenna_move"
 
 import rospy
+import std_msgs.msg
 import time
 
 
@@ -29,7 +30,7 @@ class Antenna(object):
 
         topic_from_el = rospy.Subscriber(
                 name = "/antenna/el_lock",
-                data_class = std_msgs.msg.Float64,
+                data_class = std_msgs.msg.Bool,
                 callback = self.set_flag_el,
                 queue_size = 1,
             )
