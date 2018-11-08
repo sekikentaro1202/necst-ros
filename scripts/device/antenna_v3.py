@@ -6,6 +6,7 @@ import rospy
 import std_msgs.msg
 import necst.msg
 import time
+import numpy
 
 
 class Antenna(object):
@@ -94,7 +95,7 @@ class Antenna(object):
 
         if ct - st[-1] >= 0:
             rospy.loginfo('!!!azel_list is end!!!')
-            return 
+            return
         return ct
 
     def comp(self):
@@ -151,8 +152,8 @@ class Antenna(object):
                 tar_az = ret[0] + hensa_az*(current_time-start_time)*10
                 tar_el = ret[2] + hensa_el*(current_time-start_time)*10
                 
-                self.topic_az.publish(tar_az)
-                self.topic_el.publish(tar_el)
+                self.topic_az.publish(tar_az/3600.)
+                self.topic_el.publish(tar_el/3600.)
         return
 
 
