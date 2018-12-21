@@ -257,7 +257,7 @@ while num < n:
     #print(place, int(lp)+1)
     print('tracking start')
     con.move_stop()
-    
+    time.sleep(3.)
     if coord_sys == 'PLANET':
         print(planet)
         con.planet_move(planet, off_x=offset_x, off_y=offset_y, dcos = offset_dcos, offcoord = cosydel)
@@ -383,7 +383,7 @@ while num < n:
         print(place, int(lp)+1)
         print('move ON')
         con.move_stop()
-
+        time.sleep(3.)
         if coord_sys == 'EQUATRIAL':
             pass
         elif coord_sys == 'GALACTIC':

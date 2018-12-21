@@ -219,7 +219,7 @@ while num < n:
         con.move_stop()
         con.planet_move(planet, off_x=off_x+obs["offset_Az"], off_y=off_y+obs["offset_El"], offcoord = cosydel, dcos=1)
         print('moving...')
-
+        time.sleep(3.)
         con.antenna_tracking_check()
         con.dome_tracking_check()
 
@@ -292,7 +292,7 @@ while num < n:
         con.planet_move(planet, off_x=obs["lamdel_off"]+obs["offset_Az"], off_y=obs["betdel_off"]+obs["offset_El"],dcos=1)
         con.obs_status(active=True, current_num=num*obs["N"]+p_n, current_position="OFF")
         
-
+        time.sleep(3.)
         con.antenna_tracking_check()
         con.dome_tracking_check()
         print('tracking OK')
@@ -347,7 +347,7 @@ while num < n:
         con.planet_move(planet, off_x = off_x+obs["offset_Az"], off_y = off_y+obs["offset_El"], offcoord = cosydel, dcos=1)
         con.obs_status(active=True, current_num=num*obs["N"]+p_n, current_position="ON")
         
-
+        time.sleep(3.)
         con.antenna_tracking_check()
         con.dome_tracking_check()
         print('tracking OK')
