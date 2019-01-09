@@ -159,6 +159,9 @@ def analysis(file_name, integ_mi=5000, integ_ma=10000):
 
         [a.grid() for a in axlist]
 
+        plt.show()
+        return [dAz, dEl]
+
     except Exception as e:
         print("\033[31m[ERROR OCCURRED]\033[0m\n", e)
         fig2 = plt.figure(figsize = (18, 8))
@@ -189,9 +192,9 @@ def analysis(file_name, integ_mi=5000, integ_ma=10000):
 
             
         [a.grid() for a in axlist]
-    
-    finally:
+
         plt.show()
+        return
 
     return
 

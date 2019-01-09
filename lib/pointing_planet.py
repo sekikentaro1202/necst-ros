@@ -134,6 +134,10 @@ def analysis(file_name, integ_mi=5000, integ_ma=10000):
         plt.text(0, -1.0, "DATA PATH :   {}".format(file_name), fontsize=6)
 
         [a.grid() for a in axlist]
+
+        plt.show()
+
+        return [dAz, dEl]
     
     except Exception as e:
         print("\033[31m[ERROR OCCURRED]\033[0m\n", e)
@@ -203,8 +207,8 @@ def analysis(file_name, integ_mi=5000, integ_ma=10000):
 
         [a.grid() for a in axlist]
 
-    finally:
         plt.show()
+        return
 
     return
 

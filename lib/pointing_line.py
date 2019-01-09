@@ -228,6 +228,15 @@ def analysis(file_name, mi=5000, ma=15000, width=500, integ_mi=8000, integ_ma=90
         plt.text(0,-0.5,"HPBW_AZ = {}".format(round(hpbw_az, 2)) + "  HPBW_EL = {}".format(round(hpbw_el, 2)), fontsize = 10)
         plt.text(0, -1.0, "DATA PATH :   {}".format(file_name), fontsize=6)
 
+        if plot_mode == 'plot':
+            plt.show()
+        elif plot_mode == 'savefig':
+            plt.savefig(savepath_filename)
+        else:
+            pass
+
+        return [dAz, dEl]
+
     except Exception as e:
         print("\033[31m[ERROR OCCURRED]\033[0m\n", e)
         
@@ -289,13 +298,9 @@ def analysis(file_name, mi=5000, ma=15000, width=500, integ_mi=8000, integ_ma=90
 
         [a.grid() for a in axlist]
 
-    finally:
-        if plot_mode == 'plot':
-            plt.show()
-        elif plot_mode == 'savefig':
-            plt.savefig(savepath_filename)
-        else:
-            pass
+        plt.show()
+        return
+
     return
 
 if __name__ == "__main__":
